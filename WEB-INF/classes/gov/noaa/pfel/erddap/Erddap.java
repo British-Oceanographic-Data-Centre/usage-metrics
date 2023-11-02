@@ -61,17 +61,9 @@ import java.io.Reader;
 import java.io.Writer;
 import java.net.URLConnection;
 import java.text.MessageFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.BitSet;
-import java.util.Collections;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.GregorianCalendar;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -175,6 +167,7 @@ public class Erddap extends HttpServlet {
     protected RunLoadDatasets runLoadDatasets;
     public AtomicInteger totalNRequests  = new AtomicInteger();
     public String lastReportDate = "";
+    RequestDetails userRequestDetails = new RequestDetails();
 
     /** Set by loadDatasets. */
     /** datasetHashMaps are read from many threads and written to by loadDatasets, 
@@ -483,6 +476,14 @@ public class Erddap extends HttpServlet {
             if (ipAddress.length() == 0)
                 ipAddress = "(unknownIPAddress)";
 
+            // Sets the Request object values to be passed into the UsageMetrics
+            userRequestDetails.setDateTime(Calendar2.getCurrentISODateTimeStringLocalTZ());
+            userRequestDetails.setDataSetId(requestUrl);
+            userRequestDetails.setIpAddress(ipAddress);
+            userRequestDetails.setUrl(requestUrl);
+            userRequestDetails.setQueryParams(userQuery);
+            userRequestDetails.setResponse("");
+
             //get userQuery
             String userQuery = request.getQueryString(); //may be null;  leave encoded
             if (userQuery == null)
@@ -685,6 +686,18 @@ public class Erddap extends HttpServlet {
 
             if (verbose) String2.log("}}}}#" + requestNumber + " sendErrorCode done. Total TIME=" + 
                 (System.currentTimeMillis() - doGetTime) + "ms\n");
+
+            // Send the user request details if the response was SUCCESS
+            // & it is a valid file type
+            userRequestDetails.setResponse(String.valueOf(response));
+            if(Objects.equals(userRequestDetails.getResponse(), "200")) {
+                for(String s : EDDTable.dataFileTypeNames) {
+                    if(userRequestDetails.getVariables().endsWith(s) &&
+                            Objects.equals(userRequestDetails.getResponse(), "200")) {
+                        UsageMetrics.sendUsageMetrics(userRequestDetails);
+                    }
+                }
+            }
         }
 
     }
@@ -17310,7 +17323,7 @@ expected =
 "{\n" +
 "  \"@context\": \"http://schema.org\",\n" +
 "  \"@type\": \"Dataset\",\n" +
-"  \"name\": \"Multi-scale Ultra-high Resolution (MUR) SST Analysis fv04.1, Global, 0.01°, 2002-present, Daily\",\n" +
+"  \"name\": \"Multi-scale Ultra-high Resolution (MUR) SST Analysis fv04.1, Global, 0.01ï¿½, 2002-present, Daily\",\n" +
 "  \"headline\": \"jplMURSST41\",\n" +
 "  \"description\": \"This is a merged, multi-sensor L4 Foundation Sea Surface Temperature (SST) analysi" +
 "s product from Jet Propulsion Laboratory (JPL). This daily, global, Multi-scale, Ultra-high Resolution (MUR) Se" +
